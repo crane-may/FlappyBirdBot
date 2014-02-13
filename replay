@@ -1,0 +1,3 @@
+#!/bin/sh
+
+python bird2.py replay

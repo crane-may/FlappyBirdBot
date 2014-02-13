@@ -1,0 +1,4 @@
+#!/bin/sh
+
+rm -f data/*
+python bird2.py run
