@@ -1,6 +1,5 @@
 import numpy as np
 import cv2, time, serial, thread, draw, sys, player, viewcolor, sys
-import select,termios,tty
 
 height, width = (480, 640)
 l2 = height - 157
@@ -286,26 +285,6 @@ def pipe_sensor(frame):
 
 #########################################################
 
-def cheat():
-  global b_last_jump
-  old_settings = termios.tcgetattr(sys.stdin)
-  tty.setcbreak(sys.stdin.fileno())
-  while True:
-    time.sleep(.001)
-    if select.select([sys.stdin], [], [], 0) == ([sys.stdin], [], []):
-      c = sys.stdin.read(1)
-      if c == 'q': 
-        print 'quit' 
-        break
-      elif c == 'j':
-        b_last_jump += 5
-        print '++++++++++++++' 
-      elif c == 'k':
-        b_last_jump -= 5
-        print '--------------'
-      sys.stdout.flush()
-  termios.tcsetattr(sys.stdin, termios.TCSADRAIN, old_settings)
-  sys.exit()
   
 def picture():
   global NO_LOG
@@ -348,7 +327,6 @@ def run():
     LOGFILE = open('data/log','w')
   
   thread.start_new_thread(video_thread,())
-#  thread.start_new_thread(cheat,())
   time.sleep(5)
   
   b = H0
