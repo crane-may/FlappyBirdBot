@@ -7,9 +7,9 @@ void main(int argc,char *argv[])
   int c;
   IplImage* color_img;
   CvCapture* cv_cap = cvCaptureFromCAM(0);
-/*  cvSetCaptureProperty(pCapture, CV_CAP_PROP_FPS, 15);*/
-/*  cvSetCaptureProperty(pCapture, CV_CAP_PROP_FRAME_WIDTH, 320); */
-/*  cvSetCaptureProperty(pCapture, CV_CAP_PROP_FRAME_HEIGHT, 240);*/
+  cvSetCaptureProperty(cv_cap, CV_CAP_PROP_FPS, 60);
+  cvSetCaptureProperty(cv_cap, CV_CAP_PROP_FRAME_WIDTH, 1024); 
+  cvSetCaptureProperty(cv_cap, CV_CAP_PROP_FRAME_HEIGHT, 768);
 /*  cvNamedWindow("Video",CV_WINDOW_AUTOSIZE); // create window*/
   
   int fps=0;

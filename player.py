@@ -1,13 +1,17 @@
 from Tkinter import * 
 from PIL import Image, ImageTk, ImageDraw
 import os, time, thread
-import draw
+import draw, math
 
 class LogLine():
   pass
   
 class Player():
-  def __init__(self, drawFunc):
+  def __init__(self, drawFunc, zeroX, zeroY, dataDelay):
+    self.zeroX = zeroX
+    self.zeroY = zeroY+2
+    self.dataDelay = dataDelay
+    
     self.logs = []
     for l in open('data/log'):
       arr = l.strip().split(' ')
@@ -33,21 +37,22 @@ class Player():
     self.top=Tk()
     self.top.geometry('670x600')
 
-    self.label=Label(self.top,text='',font='Helvetica -12')
-
     self.can = Canvas(self.top)
     self.can.pack()
     self.can.config(width=670, height=500)
     
-    for i in range(0,481,50):
-      self.can.create_line(640, i, 670, i)
-      self.can.create_text((655, i+9),text=str(i))
+    for i in range(-450,450,50):
+      self.can.create_line(640, i+self.zeroY, 670, i+self.zeroY)
+      self.can.create_text((655, i+self.zeroY+9),text=str(abs(i)))
     
-    for i in range(0,640,50):
-      self.can.create_line(i, 480, i, 500)
-      self.can.create_text((i+15, 490),text=str(i))
-    
+    for i in range(-650,640,50):
+      self.can.create_line(i+self.zeroX, 480, i+self.zeroX, 500)
+      self.can.create_text((i+self.zeroX+15, 490),text=str(abs(i)))
+
+    self.label=Label(self.top,text='',font='Helvetica -12')    
     self.label.pack()
+    self.label2=Label(self.top,text='',font='Helvetica -12')    
+    self.label2.pack()
     self.scale=Scale(self.top,from_=0,to=len(self.files)-1,orient=HORIZONTAL,command=self.resize)
     self.scale.set(0)
     self.scale.pack(fill=X)
@@ -58,6 +63,7 @@ class Player():
     self.top.bind("<Left>", self.prev)
     self.top.bind("<space>", lambda event: self.play())
     self.top.bind("<q>", lambda event: self.top.quit())
+    self.top.bind("<Motion>", self.mouseMove)
     
     self.drawFunc = drawFunc
     
@@ -72,8 +78,8 @@ class Player():
     
     time = self.getTime(n)
     for l in self.logs:
-      if l.time - self.start_time > time:
-        self.label.config(text="video: %f, data: %f"%(time, l.time-self.start_time))
+      if l.time - self.start_time + self.dataDelay > time:
+        self.label.config(text="video: %f (%s), data: %f (%f)"%(time,self.files[n],l.time,l.time-self.start_time))
         self.drawFunc(image, l)
         break
     
@@ -81,7 +87,7 @@ class Player():
     return self.photo
 
   def showImg(self,n):
-#    print n
+    print self.files[n]
     img = self.can.create_image(0, 0, image=self.getImg(n), anchor=NW)
     if self.last_img:
       self.can.delete(self.last_img)
@@ -124,7 +130,11 @@ class Player():
     prev_index = self.scale.get() - 1
     if prev_index > 0:
       self.scale.set(prev_index)
-
+  
+  def mouseMove(self, event):
+    self.mouse_x = event.x
+    self.mouse_y = event.y
+    self.label2.config(text="x: %f, y: %f"%(abs(event.x-self.zeroX), abs(event.y-self.zeroY)))
 
 def drawLog(im, data):
   img = draw.start(im)
@@ -133,5 +143,6 @@ def drawLog(im, data):
   draw.end(img)
 
 if __name__ == '__main__':
-  p = Player(drawLog)
+  p = Player(drawLog,0,0,0)
+
 
