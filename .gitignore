@@ -6,3 +6,4 @@ profile
 *.pyc
 *~
 data/*
+datalog/*

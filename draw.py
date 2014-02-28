@@ -8,6 +8,12 @@ def c(color):
 def d(p):
   return (int(p[0]),int(p[1]))
 
+def cvImg(img, path):
+  if isinstance(img, ImageDraw.ImageDraw):
+    return cv2.imread(path)
+  else:
+    return img  
+
 def start(img):
   if isinstance(img, Image.Image):
     return ImageDraw.Draw(img)

@@ -1,36 +1,40 @@
 import numpy as np
-import cv2, time, serial, thread, draw, sys, player, viewcolor, sys
+import cv2, time, serial, thread, draw, sys, player, viewcolor, sys, os, json, colorsys
+
+#camera distance = 19cm
 
 height, width = (480, 640)
 l2 = height - 157
-l3 = height - 124
+l3 = height - 120
 l4 = 80
 la = 15
 lb = width-40
+llight = width-18
 
-V = 217.0 # replay to measure
+V = 218.0 # replay to measure
 #Tj = 0.29605 # flatten fly to measure
 #J = 78.0 # replay to measure
 Tj = 0.29605 # flatten fly to measure
 J = 82.0 # replay to measure
 G = 2.0* J/ (Tj**2)
-PipeTdelay = 0.15# replay to measure
+PipeTdelay = 0.20# replay to measure
 B0 = 70.0
-Bp = 48.0
+Bp = 41.5
 Sb = l2 - l4
 M = V*Tj
 L = 95.0 
 H2_1 = 168.0
 K = 1.0
 Pipe_gap = 240.0
-Bd = 30.0
+Bd = 20.0
 Jump_sleep = 0.20
 H0 = 258.0
 Addon_gap = Pipe_gap / V
-Bird_body = 40.0
+Bird_body = 43.0
 
 # BUG. not atomic operate
 pipe_queue = []
+last_correct_bird = 0
 
 NO_LOG = False
 LOGFILE = None
@@ -42,6 +46,7 @@ LOG.l3 = l3
 LOG.l4 = l4
 LOG.la = la
 LOG.lb = lb
+LOG.llight = llight
 LOG.b = 0
 LOG.h1 = 0
 LOG.s = 0
@@ -57,14 +62,19 @@ def log(t, b, h1, s, sur):
                 t,LOG.b,  LOG.h1,  LOG.s,  LOG.sur,  LOG.l2,  LOG.l3,  LOG.l4,  LOG.la,  LOG.lb))
   
 
-def drawFunc(frame, d):
+def drawFunc(frame, d, path):
   frame = draw.start(frame)
+  
+  # bird_anaylze
+  draw.point(frame,(lb-anaylze_bird_pos(draw.cvImg(frame,path)),l3),(0,255,255),5)
+  
   # static
   draw.line(frame,(0,d.l2+2),(width,d.l2+2),(255,0,0),1)
   draw.line(frame,(0,d.l3+2),(width,d.l3+2),(255,0,255),1)
   draw.line(frame,(0,d.l4+2),(width,d.l4+2),(255,0,0),1)
   draw.line(frame,(d.la,0),(d.la,height),(255,0,0),1)
   draw.line(frame,(d.lb,0),(d.lb,height),(255,0,0),1)
+  # draw.line(frame,(d.llight,0),(d.llight,height),(0,255,255),1)
   
   # bird
   draw.point(frame,(d.lb-d.b,l2),(0,0,0),5)
@@ -75,7 +85,7 @@ def drawFunc(frame, d):
   draw.line(frame,(d.lb-d.h1,d.l2-d.s),(d.lb-d.h1,d.l2-d.s-L-Bird_body),(255,255,0),1)
   
   # survival
-  draw.line(frame,(d.lb-d.sur,d.l2),(d.lb-d.sur+10,d.l2+10),(0,255,255),1)
+  draw.line(frame,(d.lb-d.sur-50,d.l2-50),(d.lb-d.sur+50,d.l2+50),(0,255,255),1)
   
   draw.end(frame)
   
@@ -83,29 +93,68 @@ def proc_image(frame):
   if not NO_LOG:
     cv2.imwrite('data/%f.jpg'%time.time(),frame)
   pipe_sensor(frame)
-  drawFunc(frame, LOG)
+  drawFunc(frame, LOG,'')
   cv2.imshow('frame',frame)
   
 ######################################################
 
-#ser= serial.Serial("/dev/ttyUSB0",19200)
+ser= serial.Serial("/dev/tty.usbmodem1d1141",19200)
 def jump(b):
   print "jump", time.time()
-#  ser.write("\n")
+  ser.write("\n")
   
 ######################################################
 
-def calc_b(t, b_last_jump2, t_last_jump):
-  global b_last_jump
-#  print t,b_last_jump,t_last_jump
+b_history = []
+need_correct = False
+
+model_datas = json.loads(open('model.json').read())
+def calc_b2(t, b_last_jump2, t_last_jump):
+  global b_last_jump, b_history
   delta_t = t - t_last_jump
-  if delta_t > 0.728:
-    print '********'
-    g = G - 12*(delta_t+0.172)
-  else :
-    g = G
-  g = G
-  b = b_last_jump + J - 0.5 * g * (delta_t - Tj) ** 2
+  ds = model_datas
+  
+  for j in range(0,len(ds),2):
+    if delta_t < ds[j] and j > 0:
+      pos1 = ds[j-1]
+      pos2 = ds[j+1]
+      pos = (delta_t-ds[j-2])/(ds[j]-ds[j-2])*(pos2 - pos1) + pos1
+      
+      b = pos+b_last_jump+calc_b_addon(delta_t)
+      
+      b_history.append((t,b))
+      if b_history[0][0] + 0.18 < t:
+        b_history = b_history[1:]
+      return b
+  
+  return -10
+
+def calc_b_addon(delta_t):
+  if delta_t > 0.55 and delta_t <= 0.83:
+    return 34.0 * delta_t**2 - 52.04 * delta_t + 20.1706
+  elif delta_t > 0.83:
+    return 44.0 * delta_t**2 - 65.64 * delta_t + 25.7696
+  else:
+    return 0
+
+def calc_jump_addon(t_last_jump, t):
+  if t - t_last_jump > 0.7:
+    return -30
+  else:
+    return 0
+
+def calc_b(t, b_last_jump2, t_last_jump):
+  global b_last_jump, b_history, need_correct
+  delta_t = t - t_last_jump
+  b = b_last_jump + J - 0.5 * G * (delta_t - Tj) ** 2
+  b += calc_b_addon(delta_t)
+  
+  if delta_t > 0.6:
+    need_correct = True
+  
+  b_history.append((t,b))
+  if b_history[0][0] + 0.25 < t:
+    b_history = b_history[1:]
   return b
 
 def calc_pipe_s(t, p):
@@ -147,7 +196,60 @@ def calc_survival(t,b,h1,s,t_last_jump):
     survival = -50     
   
   return survival
+
+def anaylze_bird_pos(frame):
+  blue_start = -1
+  notblue_start = 0
+  notblue_end = 0
   
+  for i in range(10, width):
+    r = frame.item(l3,i,2)
+    g = frame.item(l3,i,1)
+    b = frame.item(l3,i,0)
+    
+    (h,s,v) = colorsys.rgb_to_hsv(r/255.0,g/255.0,b/255.0)
+    # print "%f\t%f\t%f"%(h,s,v)
+    
+    if h > 0.45 and h < 0.6 and blue_start < 0:
+      blue_start = i
+    
+    if blue_start >=0 and h < 0.45 and s > 0.75 and notblue_start == 0:
+      notblue_start = i
+      return lb - notblue_start - 20.0
+  
+  return 0
+
+def anaylze_light(frame):
+  t = 0
+  for j in range(5):
+    for i in range(j*55, (j+1)*55):
+      r = frame.item(i,llight,2)
+      g = frame.item(i,llight,1)
+      b = frame.item(i,llight,0)
+      
+      if r > 150:
+        t |= (1 << (4 - j))
+        break
+  
+  if t > 25:
+    return -1
+  else:
+    now_org = time.time()
+    now = int(now_org * 100) % 100
+    now0 = int(now / 25) * 25
+    now_25 = now % 25
+    
+    if t > now_25:
+      t = now0 - 25 + t
+    else:
+      t = now0 + t
+    
+    t = t /100.0
+    t = int(now_org) + t
+    
+    delta_t = now_org - t
+    return delta_t
+
 #########################################################
 
 def pipe_pos2(frame, w ,l):
@@ -246,7 +348,7 @@ def bird_pos():
 
 last_addon = 0
 def pipe_sensor(frame):
-  global last_addon, pipe_queue, b_last_jump
+  global last_addon, pipe_queue, b_last_jump, last_correct_bird, need_correct
   
   try:
     (pipe,t) = pipe_pos2(frame, width, l4)
@@ -267,6 +369,39 @@ def pipe_sensor(frame):
       print 'pipe1',time.time()
       pipe_queue.append(p)
   
+  #########
+  
+  
+  delta_delay = anaylze_light(frame) + 0.08
+  if delta_delay > 0 and delta_delay < 0.2:
+    bird_pos = anaylze_bird_pos(frame)
+    now = time.time()
+    if len(b_history) > 0 and now - last_correct_bird > 0.17 and need_correct:
+      need_correct = False
+      
+      h_cur = None
+      for h in b_history:
+        if now - delta_delay <= h[0]:
+          h_cur = h
+          break
+      
+      if h_cur != None:      
+        dt = time.time() - h_cur[0]
+    
+        if dt > 0.05 and dt < 0.2:
+          db = bird_pos - h_cur[1]
+          if abs(db) < 60:
+            if db > 10:
+              db = 10
+            if db < -10:
+              db = -10
+            b_last_jump += db
+            print '&&&&&&&&&&&', db, h_cur[1], bird_pos, now, delta_delay
+            last_correct_bird = now
+  
+  ##########
+  
+  return
   try:
     bird_top = pipe_bird_pos(frame)
   except Exception, e:
@@ -309,25 +444,31 @@ def picture():
 
 def video_thread():
   cap = cv2.VideoCapture(0)
+  cap.set(3,640)
+  cap.set(4,480)
   ret, frame = cap.read()
   
   while(True):
     ret, frame = cap.read()
     proc_image(frame)
-    cv2.waitKey(3)
+    cv2.waitKey(1)
 
   cap.release()
   cv2.destroyAllWindows()
   exit(0)
 
-b_last_jump = 0
-def run():
+def calc_thread():
   global h0,LOGFILE,b_last_jump
-  if not NO_LOG:
-    LOGFILE = open('data/log','w')
+  time.sleep(4)
   
-  thread.start_new_thread(video_thread,())
-  time.sleep(5)
+  tt = int(time.time())
+  while True:
+    if int(time.time()) > tt:
+      ser.write(" ")
+      break
+    time.sleep(0.001)
+  
+  time.sleep(2)
   
   b = H0
   log(time.time(),b,0,0,0)
@@ -342,74 +483,35 @@ def run():
     sur = calc_survival(t,b,h1,s,t_last_jump)
     
     if b <= sur:
+      b_last_jump = b #+ calc_jump_addon(t_last_jump, t)
       t_last_jump = t
-      b_last_jump = b
       jump(b)
     
     log(t,b,h1,s,sur)
     time.sleep(0.01)
+
+b_last_jump = 0
+def run():
+  global h0,LOGFILE,b_last_jump
+  if not NO_LOG:
+    LOGFILE = open('data/log','w')
+  
+  thread.start_new_thread(calc_thread,())
+  video_thread()
 
 def correct():
   global NO_LOG
   NO_LOG = True
   run()
 
-def test_jump():
-  global h0,LOGFILE,b_last_jump
-  if not NO_LOG:
-    LOGFILE = open('data/log','w')
-  
-  thread.start_new_thread(video_thread,())
-  time.sleep(5)
-  
-  b = H0
-  log(time.time(),b,0,0,0)
-  t_last_jump = time.time()
-  b_last_jump = b
-  jump(b)
-  
-  jump_count=1
-  while True:
-    t = time.time()
-    b = calc_b(t, b_last_jump, t_last_jump)
-    
-    if (jump_count > 1 and jump_count < 7 and t - t_last_jump > 0.20) or \
-       (jump_count == 1 and t - t_last_jump > 0.85):
-      t_last_jump = t
-      b_last_jump = b
-      jump_count+=1
-      jump(b)
-    
-    log(t,b,0,0,0)
-    time.sleep(0.01)
-
-def test_flatten():
-  global h0,LOGFILE,b_last_jump
-  if not NO_LOG:
-    LOGFILE = open('data/log','w')
-  
-  thread.start_new_thread(video_thread,())
-  time.sleep(5)
-  
-  b = H0
-  log(b,0,0,0,0)
-  t_last_jump = time.time()
-  b_last_jump = b
-  jump(b)
-  
-  while True:
-    t = time.time()
-    if t - t_last_jump >= 2.0 * Tj:
-      t_last_jump = t
-      jump(b)
-    log(t,b,0,0,0)
-    time.sleep(0.01)
-
 def replay():
-  p = player.Player(drawFunc, lb, l2, 0.16)
+  if len(sys.argv) == 2:
+    p = player.Player(drawFunc, lb, l2, 0.18)
+  else:
+    p = player.Player(drawFunc, lb, l2, 0.18, sys.argv[2])
 
 if __name__ == '__main__':
-  if os.path.exists('data'):
+  if not os.path.exists('data'):
     os.mkdir('data')
     
   if len(sys.argv) < 2:
