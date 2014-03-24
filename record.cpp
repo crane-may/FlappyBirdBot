@@ -18,34 +18,50 @@ namespace
         
         namedWindow(window_name, CV_WINDOW_KEEPRATIO); //resizable window;
         
+  
+			  int fps=0;
+			  time_t last_t=0;
+			  time_t now;
+				
         Mat frame, frameCopy;        
         int i =0;
         for (;;) 
         {
+
+			    fps++;
+			    time(&now);
+					
+					if (now > last_t){
+            cout << fps << endl;
+			      fps = 0;
+			    }
+			    last_t = now;
+					
+					
             capture >> frame;
-            cout << (i++) << endl;
+            // cout << (i++) << endl;
             if (frame.empty())
                 break;
-                
-            imshow(window_name, frame);
-            char key = (char)waitKey(5); //delay N millis, usually long enough to display and capture input
             
-            switch (key) 
-            {
-            case 'q':
-            case 'Q':
-            case 27: //escape key
-               return 0;
-        
-            case ' ': //Save an image
-               sprintf(filename,"filename%.3d.jpg",n++);
-               imwrite(filename,frame);
-               cout << "Saved " << filename << endl;
-               break;
-        
-            default:
-               break;
-            }
+            // imshow(window_name, frame);
+            // char key = (char)waitKey(5); //delay N millis, usually long enough to display and capture input
+            // 
+            // switch (key) 
+            // {
+            // case 'q':
+            // case 'Q':
+            // case 27: //escape key
+            //    return 0;
+            //         
+            // case ' ': //Save an image
+            //    sprintf(filename,"filename%.3d.jpg",n++);
+            //    imwrite(filename,frame);
+            //    cout << "Saved " << filename << endl;
+            //    break;
+            //         
+            // default:
+            //    break;
+            // }
         }
         return 0;
     }

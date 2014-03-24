@@ -1,14 +1,14 @@
 import numpy as np
 import cv2, time, serial, thread, draw, sys, player, viewcolor, sys, os, json, colorsys, detect
 
-ser= serial.Serial("/dev/tty.usbmodem1d1141",19200)
+ser= serial.Serial("/dev/tty.usbmodem1d1121",19200)
 
 ######################
 
 HIGHT = 480.0
 WIDTH = 640.0
 DECIDE_FREQ = 0.005
-MIN_JUMP_FREQ = 0.2
+MIN_JUMP_FREQ = 0.16
 TAP_DELAY = 0.0725
 MAX_CORRECT_H = 15
 
@@ -17,12 +17,12 @@ B_JUMP_H = 82.0
 B_JUMP_UP_T = 0.29605
 B_WIDTH = 43.0
 B_Y = 323
-PIPE_V = 218.0
+PIPE_V = 219.0
 PIPE_W = 95.0
 PIPE_SPACE = 174.0
 PIPES_GAP = 240.0
-SURV_PIPE_H = 35.0
-SURV_PIPE_W = 10.0
+SURV_PIPE_H = 32.6
+SURV_PIPE_W = 7.5
 SURV_H = 70.0
 SURV_K = 1.0
 GROUND_X = 600.0
@@ -116,7 +116,7 @@ def correct_b_h(frame, frame_delay, now):
       delta_t = now - calc_b_h[0]
       if delta_t > 0.05 and delta_t < 0.2:
         b_h_diff = detect_b_h - calc_b_h[1]
-        if calc_b_h[2] > 0.6:
+        if calc_b_h[2] > 0.55:
           return
         if abs(b_h_diff) > 60:
           return
@@ -213,7 +213,7 @@ def correct_light_timer():
 
 def log_w(t, s):
   global log
-  # log.write("%f;%s\n"%(t, s))
+  log.write("%f;%s\n"%(t, s))
   pass
 
 ######################
