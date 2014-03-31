@@ -1,6 +1,10 @@
-const int buttonPin = 2;     // the number of the pushbutton pin
-const int ledPin =  4;      // the number of the LED pin
-const int switchPin =  3;      // the number of the LED pin
+int enB = 10;
+int in3 = 12;
+int in4 = 13;
+
+const int buttonPin = 5;     // the number of the pushbutton pin
+const int ledPin =  7;      // the number of the LED pin
+const int switchPin =  6;      // the number of the LED pin
 
 // variables will change:
 int buttonState = 0;         // variable for reading the pushbutton status
@@ -13,33 +17,16 @@ void setup() {
   pinMode(ledPin, OUTPUT);
   pinMode(buttonPin,  INPUT_PULLUP);
   pinMode(switchPin,  INPUT_PULLUP);
-  digitalWrite(ledPin, LOW);
+  digitalWrite(ledPin, HIGH);
   delay(500);
   switchState = digitalRead(switchPin);
   
-  pinMode(5, OUTPUT);
-  pinMode(6, OUTPUT);
-  pinMode(7, OUTPUT);
-  pinMode(8, OUTPUT);
-  pinMode(9, OUTPUT);
-  showTime(-1);
-}
-
-void showTime(long t){
-  if (t >= 0){
-    t = t % 25;
-    digitalWrite(5, t & 0b00001);
-    digitalWrite(6, t & 0b00010);
-    digitalWrite(7, t & 0b00100);
-    digitalWrite(8, t & 0b01000);
-    digitalWrite(9, t & 0b10000);
-  }else{
-    digitalWrite(5, HIGH);
-    digitalWrite(6, HIGH);
-    digitalWrite(7, HIGH);
-    digitalWrite(8, HIGH);
-    digitalWrite(9, HIGH);
-  }
+  pinMode(enB, OUTPUT);
+  digitalWrite(enB, LOW);
+  pinMode(in3, OUTPUT);
+  pinMode(in4, OUTPUT);
+  digitalWrite(in3, LOW);
+  digitalWrite(in4, HIGH);
 }
 
 unsigned long downtime = 0;
@@ -56,24 +43,21 @@ void loop() {
       if (buf[i] == '\n') {
         jump = 1;
       }
-      else if (buf[i] == ' ') {
-        laststart = millis();
-      }
     }
   }
   
-  long delta = (millis() - laststart)/10L;
-  showTime(delta);
-    
+  long delta = (millis() - laststart)/10L;    
   if (switchState) {
     
     if (jump > 0 && downtime == 0) {
-      digitalWrite(ledPin, HIGH);
+      digitalWrite(ledPin, LOW);
+      digitalWrite(enB, HIGH);
       downtime = millis();
     }
     
     if (downtime > 0 && (millis() - downtime) > 80){
-      digitalWrite(ledPin, LOW);
+      digitalWrite(ledPin, HIGH);
+      digitalWrite(enB, LOW);
       downtime = 0;
     }
   

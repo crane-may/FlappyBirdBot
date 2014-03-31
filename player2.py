@@ -7,7 +7,7 @@ class LogLine():
   pass
   
 class Player():
-  def __init__(self, zeroX, zeroY, path='datalog'):
+  def __init__(self, zeroX, zeroY, path='/Volumes/Ramdisk/datalog'):
     self.zeroX = zeroX
     self.zeroY = zeroY+2
     self.path = path
@@ -27,6 +27,7 @@ class Player():
         
     logs.sort()
     
+    skip = True
     self.start = -1
     self.graphs = []
     hold_graph = {}
@@ -36,6 +37,12 @@ class Player():
         ll = ma.groups()
         t = float(ll[0])
         holder = ll[1]
+        
+        if holder == "[B]":
+          if os.path.exists(self.path+"/%s" % ll[2].strip('<>')):
+            skip = False
+        if skip:
+          continue
         
         cur = int(t*100)
         if self.start < 0:
@@ -55,7 +62,7 @@ class Player():
           self.graphs[idx]['_'].append(ll)
     
     self.top=Tk()
-    self.top.geometry('670x600')
+    self.top.geometry('670x1100')
 
     self.can = Canvas(self.top)
     self.can.pack()
@@ -85,6 +92,10 @@ class Player():
     self.top.bind("<Motion>", self.mouseMove)
     self.top.bind("<space>", self.to600)
     
+    self.can2 = Canvas(self.top)
+    self.can2.pack()
+    self.can2.config(width=670, height=500)
+    
     self.last_img = None
     mainloop()
     
@@ -99,7 +110,7 @@ class Player():
       image = Image.open(self.path+"/%s" % filename)
       
       ####
-      
+    
       gs = []
       for (k,v) in graph.items():
         if k == '[B]':
@@ -108,7 +119,7 @@ class Player():
           gs += graph[k]
         else:
           gs.append(graph[k])
-      
+    
       draw = ImageDraw.Draw(image)
       for g in gs:
         (t, holder, jpg, L, lx1, ly1, lx2, ly2, lcolor, P, px, py, pcolor, out) = g
@@ -122,11 +133,11 @@ class Player():
           draw.ellipse((float(px)-4, float(py)-4, float(px)+4, float(py)+4), fill=pcolor)
         elif out:
           print t,out
-        
+      
       del draw
-      
+    
       ####
-      
+    
       self.photo = ImageTk.PhotoImage(image)
       img = self.can.create_image(0, 0, image=self.photo, anchor=NW)
     else:
@@ -135,6 +146,41 @@ class Player():
     if self.last_img:
       self.can.delete(self.last_img)
     self.last_img = img
+    
+    self.can2.delete("all")
+    self.can2.create_line(0, 500, 700, 500)
+    
+    t_start = 0
+    px_start = 0
+    b_show = True
+    b_show_count = 0
+    for g in self.graphs[n:n+200]:
+      if g.has_key("_"):
+        for gi in g["_"]:
+          (t, holder, jpg, L, lx1, ly1, lx2, ly2, lcolor, P, px, py, pcolor, out) = gi
+          t = float(t)
+          
+          if pcolor == "#0ff":
+            px = (self.zeroX - float(px))
+            if t_start == 0:
+              t_start = t
+              px_start = px
+              print "next_b", t_start
+            
+            if b_show:
+              b_show_count += 0
+              # print t-t_start, px-px_start
+              
+            x = (t-t_start)*200
+            y = 500 - px
+            self.can2.create_line(x, y-5, x, y+5)
+            self.can2.create_line(x-5, y, x+5, y)
+            
+          elif out == '{jumppppppppppppp}':
+            if b_show_count > 0:
+              b_show = False
+            x = (t-t_start)*200
+            self.can2.create_line(x, 0, x, 500, fill="red")
   
   def resize(self, ev=None):
     self.showImg(self.scale.get())
