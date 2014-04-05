@@ -2,7 +2,7 @@ import numpy as np
 import cv2, time, serial, thread, os, json, core
 from Queue import *
 
-cap = cv2.VideoCapture(1)
+cap = cv2.VideoCapture(0)
 cap.set(3,640)
 cap.set(4,480)
 

@@ -185,7 +185,7 @@ def calc_fps(fps, last_t):
   return fps, last_t
   
 def detect_thread():
-  cap = cv2.VideoCapture(1)
+  cap = cv2.VideoCapture(0)
   cap.set(3,640)
   cap.set(4,480)
   ret, frame = cap.read()
@@ -256,7 +256,7 @@ def log_w(t, s):
 ######################
 
 if __name__ == "__main__":
-  ser = serial.Serial("/dev/tty.usbmodemfd1311",19200)
+  ser = serial.Serial("/dev/tty.usbmodem1a1211",19200)
   if len(sys.argv) < 2:
     print 'usage: python bird2.py [run|picture|replay|correct]' 
   else:

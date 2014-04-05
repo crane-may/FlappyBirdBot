@@ -3,6 +3,9 @@ import cv2, sys, time, os, serial, core, backdiff
 
 diff_h = backdiff.Diff(5, 5)
 diff_g = backdiff.Diff(25, 15)
+diff_dark_h = backdiff.Diff(5, 5)
+diff_dark_g = backdiff.Diff(25, 20)
+
 green_mask = None
 
 def init_back():
@@ -11,9 +14,9 @@ def init_back():
   green_mask = cv2.cvtColor(green_mask,cv2.COLOR_BGR2GRAY)
   ret, green_mask = cv2.threshold(green_mask, 40, 255, cv2.THRESH_BINARY)
   
-  for f in os.listdir('learn'):
+  for f in os.listdir('learn_1'):
     if f.endswith('jpg'):
-      frame = cv2.imread('learn/'+f)
+      frame = cv2.imread('learn_1/'+f)
       hsv = cv2.split(cv2.cvtColor(frame,cv2.COLOR_BGR2HSV))
       diff_h.acc_back(hsv[0])
       
@@ -23,19 +26,66 @@ def init_back():
   diff_h.create_models_from_stats()
   diff_g.create_models_from_stats()
 
+  for f in os.listdir('learn_2'):
+    if f.endswith('jpg'):
+      frame = cv2.imread('learn_2/'+f)
+      hsv = cv2.split(cv2.cvtColor(frame,cv2.COLOR_BGR2HSV))
+      diff_dark_h.acc_back(hsv[0])
+      
+      gray = cv2.cvtColor(frame,cv2.COLOR_BGR2GRAY)
+      diff_dark_g.acc_back(gray)
+      
+  diff_dark_h.create_models_from_stats()
+  diff_dark_g.create_models_from_stats()
+  
+
 init_back()
 
+use_which_learn = None
 def pre_frame(frame):
+  global use_which_learn
+  
   f = cv2.blur(frame, (3,3))
   hsv = cv2.split(cv2.cvtColor(f, cv2.COLOR_BGR2HSV))
   gray = cv2.cvtColor(f, cv2.COLOR_BGR2GRAY)
   
-  mask_h = diff_h.background_diff(hsv[0])
-  mask_h = cv2.bitwise_and(mask_h, green_mask)
-  # cv2.imshow('frame2', mask_h)
-  
-  mask_g = diff_g.background_diff(gray)
-  # cv2.imshow('frame3', mask_g)
+  if use_which_learn == None:
+    light = diff_g.background_diff(gray)
+    dark = diff_dark_g.background_diff(gray)
+    
+    ld_mask = cv2.imread('light_dark_mask.jpg')
+    ld_mask = cv2.cvtColor(ld_mask,cv2.COLOR_BGR2GRAY)
+    ret, ld_mask = cv2.threshold(ld_mask, 40, 255, cv2.THRESH_BINARY)
+    light = cv2.bitwise_and(light, ld_mask)
+    dark =  cv2.bitwise_and(dark , ld_mask)
+    
+    # print "light", cv2.sumElems(light)
+    # print "dark", cv2.sumElems(dark)
+    
+    light_ret = cv2.sumElems(light)
+    dark_ret = cv2.sumElems(dark)
+    
+    if light_ret[0] > dark_ret[0]:
+      print "============= night =============="
+      use_which_learn = 2
+    else:
+      print "============= day =============="
+      use_which_learn = 1
+    
+  if use_which_learn == 1:    
+    mask_h = diff_h.background_diff(hsv[0])
+    mask_h = cv2.bitwise_and(mask_h, green_mask)
+    # cv2.imshow('frame2', mask_h)
+    
+    mask_g = diff_g.background_diff(gray)
+    # cv2.imshow('frame3', mask_g)
+  else:
+    mask_h = diff_dark_h.background_diff(hsv[0])
+    mask_h = cv2.bitwise_and(mask_h, green_mask)
+    # cv2.imshow('frame2', mask_h)
+    
+    mask_g = diff_dark_g.background_diff(gray)
+    # cv2.imshow('frame3', mask_g)
   
   return  cv2.bitwise_or(mask_g, mask_h)
 
